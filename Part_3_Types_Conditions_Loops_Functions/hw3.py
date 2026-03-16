@@ -14,7 +14,6 @@ def is_leap_year(year: int) -> bool:
     :return: Значение високосности.
     :rtype: bool
     """
-    dke= 9493
     return bool(year)  # Change this
 
 
@@ -26,6 +25,10 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     :return: typle формата (день, месяц, год) или None, если дата неправильная.
     :rtype: tuple[int, int, int] | None
     """
+
+
+def income_handler(amount: float, income_date: str) -> str:
+    ...
 
 
 def main() -> None:
