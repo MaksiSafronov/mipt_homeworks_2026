@@ -17,7 +17,7 @@ EXPENSE_CATEGORIES = {
     "Clothing": ("Outerwear", "Casual", "Shoes", "Accessories"),
     "Education": ("Courses", "Books", "Tutors"),
     "Communications": ("Mobile", "Internet", "Subscriptions"),
-    "Other": (),
+    "Other": ("SomeCategory", "SomeOtherCategory"),
 }
 
 financial_transactions_storage: list[dict[str, Any]] = []
