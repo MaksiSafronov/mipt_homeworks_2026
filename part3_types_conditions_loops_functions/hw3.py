@@ -41,7 +41,7 @@ EXPENSE_CATEGORIES = {
     "Clothing": ("Outerwear", "Casual", "Shoes", "Accessories"),
     "Education": ("Courses", "Books", "Tutors"),
     "Communications": ("Mobile", "Internet", "Subscriptions"),
-    "Other": ("Other",),
+    "Other": ("SomeCategory", "SomeOtherCategory"),
 }
 
 
@@ -118,7 +118,7 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     Парсит дату формата DD-MM-YYYY из строки.
 
     :param str maybe_dt: Проверяемая строка
-    :return: typle формата (день, месяц, год) или None, если дата неправильная.
+    :return: tuple формата (день, месяц, год) или None, если дата неправильная.
     :rtype: tuple[int, int, int] | None
     """
     date_parts = maybe_dt.split("-")
@@ -423,5 +423,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     main()
 
+=======
+    main()
+>>>>>>> 887585ed6d1d6caa426fab542f7e6bdae1023109
