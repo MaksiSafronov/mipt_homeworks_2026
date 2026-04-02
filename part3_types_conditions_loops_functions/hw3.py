@@ -113,13 +113,47 @@ def income_handler(amount: float, income_date: str) -> str:
     return OP_SUCCESS_MSG
 
 
+def get_expense_categories() -> dict[str, tuple[str, ...]]:
+    return dict(EXPENSE_CATEGORIES)
+
+
+def is_category_exist(category: str) -> bool:
+    parts = category.split(CATEGORY_SEPARATOR)
+    categories = get_expense_categories()
+    if len(parts) != LEN_CATEGORY:
+        return False
+    main_category, sub_category = parts
+    return main_category in categories and sub_category in categories[main_category]
+
+
 def cost_handler(category_name: str, amount: float, income_date: str) -> str:
-    financial_transactions_storage.append({"category": category_name, "amount": amount, "date": income_date})
-    return OP_SUCCESS_MSG
+    date = extract_date(income_date)
+    status = OP_SUCCESS_MSG
+
+    if not is_category_exist(category_name):
+        status = NOT_EXISTS_CATEGORY
+    elif amount <= 0:
+        status = NONPOSITIVE_VALUE_MSG
+    elif date is None:
+        status = INCORRECT_DATE_MSG
+
+    if status == OP_SUCCESS_MSG:
+        financial_transactions_storage.append(
+            {CATEGORY_KEY: category_name, AMOUNT_KEY: amount, DATE_KEY: date},
+        )
+    else:
+        financial_transactions_storage.append({})
+    return status
 
 
 def cost_categories_handler() -> str:
-    return "\n".join({})
+    categories: list[str] = []
+    for main_category, sub_categories in EXPENSE_CATEGORIES.items():
+        categories.extend(
+            f"{main_category}{CATEGORY_SEPARATOR}{sub_category}"
+            for sub_category in sub_categories
+        )
+    return "\n".join(categories)
 
 
 def stats_handler(report_date: str) -> str:
