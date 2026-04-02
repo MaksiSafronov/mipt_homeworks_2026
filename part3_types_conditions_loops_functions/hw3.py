@@ -54,17 +54,51 @@ def is_leap_year(year: int) -> bool:
     :return: Значение високосности.
     :rtype: bool
     """
-    return bool(year)  # Change this
+    if year % 400 == 0:
+        return True
+    if year % 100 == 0:
+        return False
+    return year % 4 == 0
 
 
-def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
+def has_valid_date_lengths(parts: list[str]) -> bool:
+    return (
+        len(parts[0]) == DATE_PART_LENGTHS[0]
+        and len(parts[1]) == DATE_PART_LENGTHS[1]
+        and len(parts[2]) == DATE_PART_LENGTHS[2]
+    )
+
+
+def get_max_day(month: int, year: int) -> int:
+    if month == FEB_NUM:
+        return 29 if is_leap_year(year) else 28
+    if month in THIRTY_DAY_MONTHS:
+        return 30
+    return 31
+
+
+def extract_date(maybe_dt: str) -> Date | None:
     """
     Парсит дату формата DD-MM-YYYY из строки.
 
     :param str maybe_dt: Проверяемая строка
     :return: typle формата (день, месяц, год) или None, если дата неправильная.
-    :rtype: tuple[int, int, int] | None
+    :rtype: Date | None
     """
+    parts = maybe_dt.split(MINUS_SIGN)
+    if len(parts) != NUM_IN_DATA or not has_valid_date_lengths(parts):
+        return None
+    if not all(part and part.isdigit() for part in parts):
+        return None
+
+    day = int(parts[0])
+    month = int(parts[1])
+    year = int(parts[2])
+    if month < 1 or month > MONTH_CNT or day < 1:
+        return None
+    if day > get_max_day(month, year):
+        return None
+    return day, month, year
 
 
 def income_handler(amount: float, income_date: str) -> str:
