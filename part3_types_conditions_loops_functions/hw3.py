@@ -23,10 +23,6 @@ DECIMAL_POINT = "."
 AMOUNT_KEY = "amount"
 DATE_KEY = "date"
 CATEGORY_KEY = "category"
-CAPITAL_KEY = "capital"
-INCOME_KEY = "income"
-EXPENSES_KEY = "expenses"
-CATEGORIES_KEY = "categories"
 
 EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
@@ -101,6 +97,16 @@ def extract_date(maybe_dt: str) -> Date | None:
     return day, month, year
 
 
+def get_transaction_date(transaction: dict[str, Any]) -> Date | None:
+    raw = transaction[DATE_KEY]
+    if isinstance(raw, str):
+        return extract_date(raw)
+    if isinstance(raw, tuple) and len(raw) == NUM_IN_DATA:
+        day, month, year = raw
+        return day, month, year
+    return None
+
+
 def income_handler(amount: float, income_date: str) -> str:
     date = extract_date(income_date)
     if amount <= 0:
@@ -156,8 +162,89 @@ def cost_categories_handler() -> str:
     return "\n".join(categories)
 
 
+def is_after_report(date: Date, report: Date) -> bool:
+    if date[2] != report[2]:
+        return date[2] > report[2]
+    if date[1] != report[1]:
+        return date[1] > report[1]
+    return date[0] > report[0]
+
+
+def cumulative_income_or_cost_delta(
+    transaction: dict[str, Any],
+    report: Date,
+) -> tuple[float, float] | None:
+    if not transaction:
+        return None
+    date = get_transaction_date(transaction)
+    if date is None or is_after_report(date, report):
+        return None
+    amount = transaction[AMOUNT_KEY]
+    if CATEGORY_KEY in transaction:
+        return 0, amount
+    return amount, 0
+
+
+def cumulative_income_and_cost_totals(report: Date) -> tuple[float, float]:
+    income_total: float = 0
+    cost_total: float = 0
+    for transaction in financial_transactions_storage:
+        delta = cumulative_income_or_cost_delta(transaction, report)
+        if delta is None:
+            continue
+        income_delta, cost_delta = delta
+        income_total += income_delta
+        cost_total += cost_delta
+    return income_total, cost_total
+
+
+def build_category_detail_lines() -> list[str]:
+    totals: dict[str, float] = {}
+    for transaction in financial_transactions_storage:
+        if not transaction:
+            continue
+        category_name = transaction.get(CATEGORY_KEY)
+        if category_name is None:
+            continue
+        amount = transaction[AMOUNT_KEY]
+        totals[category_name] = totals.get(category_name, 0) + amount
+    return [
+        f"{index}. {category}: {amount}"
+        for index, (category, amount) in enumerate(totals.items())
+    ]
+
+
+def format_stats(
+    report_date: str,
+    income_total: float,
+    cost_total: float,
+    detail_lines: list[str],
+) -> str:
+    costs_amount = round(cost_total, 2)
+    incomes_amount = round(income_total, 2)
+    total_capital = round(costs_amount - incomes_amount, 2)
+    amount_word = "loss" if total_capital < 0 else "profit"
+    lines = [
+        f"Your statistics as of {report_date}:",
+        f"Total capital: {total_capital} rubles",
+        f"This month, the {amount_word} amounted to {total_capital} rubles.",
+        f"Income: {costs_amount} rubles",
+        f"Expenses: {incomes_amount} rubles",
+        "",
+        "Details (category: amount):",
+    ]
+    lines.extend(detail_lines)
+    return "\n".join([*lines, ""])
+
+
 def stats_handler(report_date: str) -> str:
-    return f"Statistic for {report_date}"
+    report = extract_date(report_date)
+    if report is None:
+        return INCORRECT_DATE_MSG
+
+    income_total, cost_total = cumulative_income_and_cost_totals(report)
+    detail_lines = build_category_detail_lines()
+    return format_stats(report_date, income_total, cost_total, detail_lines)
 
 
 def main() -> None:
