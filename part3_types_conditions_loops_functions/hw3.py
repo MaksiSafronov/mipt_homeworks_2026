@@ -205,7 +205,10 @@ def build_category_detail_lines() -> list[str]:
             continue
         amount = transaction[AMOUNT_KEY]
         totals[category_name] = totals.get(category_name, 0) + amount
-    return [f"{index}. {category}: {amount}" for index, (category, amount) in enumerate(totals.items())]
+    lines: list[str] = []
+    for index, (category, amount) in enumerate(totals.items()):
+        lines.append(f"{index}. {category}: {amount}")
+    return lines
 
 
 def format_stats(
