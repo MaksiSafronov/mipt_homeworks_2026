@@ -247,6 +247,72 @@ def stats_handler(report_date: str) -> str:
     return format_stats(report_date, income_total, cost_total, detail_lines)
 
 
+def is_int(value: str) -> bool:
+    if not value:
+        return False
+    if value[0] != MINUS_SIGN:
+        return value.isdigit()
+    if len(value) == 1:
+        return False
+    return value[1:].isdigit()
+
+
+def is_valid_amount_symbol(symbol: str, left: str, *, in_fraction: bool) -> bool:
+    if symbol.isdigit():
+        return True
+    return symbol == MINUS_SIGN and left == "" and not in_fraction
+
+
+def split_amount_parts(amount_str: str) -> AmountParts | None:
+    dot_count = 0
+    left = ""
+    right = ""
+    in_fraction = False
+
+    for symbol in amount_str:
+        if symbol == DECIMAL_POINT:
+            dot_count += 1
+            in_fraction = True
+            continue
+        if not is_valid_amount_symbol(symbol, left, in_fraction=in_fraction):
+            return None
+        if in_fraction:
+            right += symbol
+        else:
+            left += symbol
+
+    return left, right, dot_count
+
+
+def normalize_amount_parts(parts: AmountParts) -> AmountParts | None:
+    left, right, dot_count = parts
+    if dot_count > 1:
+        return None
+    if left == MINUS_SIGN or (left == "" and right == ""):
+        return None
+
+    left = left or "0"
+    right = right or "0"
+    if dot_count == 0 and not is_int(left):
+        return None
+    return left, right, dot_count
+
+
+def parse_amount(amount_str: str) -> float | None:
+    parts = split_amount_parts(amount_str.replace(",", DECIMAL_POINT))
+    if parts is None:
+        return None
+
+    normalized = normalize_amount_parts(parts)
+    if normalized is None:
+        return None
+
+    left, right, dot_count = normalized
+    if dot_count == 0:
+        return float(left)
+    return float(f"{left}.{right}")
+
+
 def main() -> None:
     """Ваш код здесь"""
 
