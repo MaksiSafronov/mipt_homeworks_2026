@@ -8,6 +8,25 @@ INCORRECT_DATE_MSG = "Invalid date!"
 NOT_EXISTS_CATEGORY = "Category not exists!"
 OP_SUCCESS_MSG = "Added"
 
+NUM_IN_DATA = 3
+MONTH_CNT = 12
+FEB_NUM = 2
+LEN_OTHER_OF_YEAR = 2
+LEN_YEAR = 4
+LEN_CATEGORY = 2
+COST_CMD_LEN = 4
+THIRTY_DAY_MONTHS = (4, 6, 9, 11)
+DATE_PART_LENGTHS = (LEN_OTHER_OF_YEAR, LEN_OTHER_OF_YEAR, LEN_YEAR)
+CATEGORY_SEPARATOR = "::"
+MINUS_SIGN = "-"
+DECIMAL_POINT = "."
+AMOUNT_KEY = "amount"
+DATE_KEY = "date"
+CATEGORY_KEY = "category"
+CAPITAL_KEY = "capital"
+INCOME_KEY = "income"
+EXPENSES_KEY = "expenses"
+CATEGORIES_KEY = "categories"
 
 EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
@@ -21,6 +40,8 @@ EXPENSE_CATEGORIES = {
     "Other": ("SomeCategory", "SomeOtherCategory"),
 }
 
+Date = tuple[int, int, int]
+AmountParts = tuple[str, str, int]
 
 financial_transactions_storage: list[dict[str, Any]] = []
 
