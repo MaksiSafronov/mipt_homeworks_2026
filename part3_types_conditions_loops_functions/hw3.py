@@ -155,10 +155,7 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
 def cost_categories_handler() -> str:
     categories: list[str] = []
     for main_category, sub_categories in EXPENSE_CATEGORIES.items():
-        categories.extend(
-            f"{main_category}{CATEGORY_SEPARATOR}{sub_category}"
-            for sub_category in sub_categories
-        )
+        categories.extend(f"{main_category}{CATEGORY_SEPARATOR}{sub_category}" for sub_category in sub_categories)
     return "\n".join(categories)
 
 
@@ -208,10 +205,7 @@ def build_category_detail_lines() -> list[str]:
             continue
         amount = transaction[AMOUNT_KEY]
         totals[category_name] = totals.get(category_name, 0) + amount
-    return [
-        f"{index}. {category}: {amount}"
-        for index, (category, amount) in enumerate(totals.items())
-    ]
+    return [f"{index}. {category}: {amount}" for index, (category, amount) in enumerate(totals.items())]
 
 
 def format_stats(
