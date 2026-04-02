@@ -313,8 +313,55 @@ def parse_amount(amount_str: str) -> float | None:
     return float(f"{left}.{right}")
 
 
+def get_indexes(parts: list[str]) -> tuple[int, int]:
+    command = parts[0]
+    if command == "income" and len(parts) == NUM_IN_DATA:
+        return 1, 2
+    if command == "cost" and len(parts) == COST_CMD_LEN:
+        return 2, 3
+    return -1, -1
+
+
+def is_cost_categories_command(parts: list[str]) -> bool:
+    if len(parts) != LEN_CATEGORY:
+        return False
+    if parts[0] != "cost":
+        return False
+    return parts[1] == "categories"
+
+
+def amount_command(parts: list[str], amount_index: int, date_index: int) -> str:
+    amount = parse_amount(parts[amount_index])
+    if amount is None:
+        return NONPOSITIVE_VALUE_MSG
+    if parts[0] == "income":
+        return income_handler(amount, parts[date_index])
+
+    result = cost_handler(parts[1], amount, parts[date_index])
+    if result == NOT_EXISTS_CATEGORY:
+        return f"{result}\n{cost_categories_handler()}"
+    return result
+
+
 def main() -> None:
-    """Ваш код здесь"""
+    parts = input().split()
+    if not parts:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+
+    command = parts[0]
+    if is_cost_categories_command(parts):
+        print(cost_categories_handler())
+        return
+    if command == "stats" and len(parts) == LEN_CATEGORY:
+        print(stats_handler(parts[1]))
+        return
+
+    amount_index, date_index = get_indexes(parts)
+    if amount_index != -1:
+        print(amount_command(parts, amount_index, date_index))
+        return
+    print(UNKNOWN_COMMAND_MSG)
 
 
 if __name__ == "__main__":
