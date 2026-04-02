@@ -102,7 +102,14 @@ def extract_date(maybe_dt: str) -> Date | None:
 
 
 def income_handler(amount: float, income_date: str) -> str:
-    financial_transactions_storage.append({"amount": amount, "date": income_date})
+    date = extract_date(income_date)
+    if amount <= 0:
+        financial_transactions_storage.append({})
+        return NONPOSITIVE_VALUE_MSG
+    if date is None:
+        financial_transactions_storage.append({})
+        return INCORRECT_DATE_MSG
+    financial_transactions_storage.append({AMOUNT_KEY: amount, DATE_KEY: date})
     return OP_SUCCESS_MSG
 
 
