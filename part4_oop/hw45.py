@@ -94,7 +94,7 @@ class LFUPolicy(Policy[K]):
 
     def get_key_to_evict(self) -> K | None:
         if len(self._key_counter) >= self.capacity:
-            return min(self._key_counter, key=self._key_counter.get)
+            return min(self._key_counter, key=self._key_counter.get)  # type: ignore[arg-type]
         return None
 
     def remove_key(self, key: K) -> None:
@@ -113,7 +113,7 @@ class LFUPolicy(Policy[K]):
         for counter_key, counter_val in self._key_counter.items():
             if counter_val == min_val:
                 last_key = counter_key
-        return last_key
+        return last_key  # type: ignore[return-value]
 
 
 class MIPTCache(Cache[K, V]):
@@ -150,7 +150,6 @@ class MIPTCache(Cache[K, V]):
             self.policy.remove_key(evict_key)
 
 
-
 class CachedProperty[V]:
     def __init__(self, func: Callable[..., V]) -> None:
         self._func = func
@@ -158,7 +157,7 @@ class CachedProperty[V]:
 
     def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> V:
         if instance is None:
-            return self
+            return self  # type: ignore[return-value]
         cached: V | None = instance.cache.get(self._cache_key)
         if cached is not None:
             return cached
