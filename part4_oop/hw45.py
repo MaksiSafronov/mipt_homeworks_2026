@@ -88,9 +88,12 @@ class LFUPolicy(Policy[K]):
 
     def register_access(self, key: K) -> None:
         self._key_counter[key] = self._key_counter.get(key, 0) + 1
+        if len(self._key_counter) > self.capacity:
+            evict_key = self._find_last_min_key()
+            del self._key_counter[evict_key]
 
     def get_key_to_evict(self) -> K | None:
-        if len(self._key_counter) > self.capacity:
+        if len(self._key_counter) >= self.capacity:
             return min(self._key_counter, key=self._key_counter.get)
         return None
 
@@ -104,9 +107,17 @@ class LFUPolicy(Policy[K]):
     def has_keys(self) -> bool:
         return len(self._key_counter) > 0
 
+    def _find_last_min_key(self) -> K:
+        min_val = min(self._key_counter.values())
+        last_key: K | None = None
+        for counter_key, counter_val in self._key_counter.items():
+            if counter_val == min_val:
+                last_key = counter_key
+        return last_key
+
 
 class MIPTCache(Cache[K, V]):
-    def init(self, storage: Storage[K, V], policy: Policy[K]) -> None:
+    def __init__(self, storage: Storage[K, V], policy: Policy[K]) -> None:
         self.storage = storage
         self.policy = policy
 
@@ -141,10 +152,11 @@ class MIPTCache(Cache[K, V]):
 
 
 class CachedProperty[V]:
-    def init(self, func: Callable[..., V]) -> None:
+    def __init__(self, func: Callable[..., V]) -> None:
         self._func = func
-        self._cache_key = func.name
-    def get(self, instance: HasCache[Any, Any] | None, owner: type) -> V:
+        self._cache_key = func.__name__
+
+    def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> V:
         if instance is None:
             return self
         cached: V | None = instance.cache.get(self._cache_key)
