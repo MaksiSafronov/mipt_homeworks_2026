@@ -106,24 +106,38 @@ class LFUPolicy(Policy[K]):
 
 
 class MIPTCache(Cache[K, V]):
-    def __init__(self, storage: Storage[K, V], policy: Policy[K]) -> None:
+    def init(self, storage: Storage[K, V], policy: Policy[K]) -> None:
         self.storage = storage
         self.policy = policy
 
     def set(self, key: K, value: V) -> None:
-        raise NotImplementedError
+        self.storage.set(key, value)
+        self.policy.register_access(key)
+        self._evict_if_needed()
 
     def get(self, key: K) -> V | None:
-        raise NotImplementedError
+        if not self.storage.exists(key):
+            return None
+        self.policy.register_access(key)
+        return self.storage.get(key)
 
     def exists(self, key: K) -> bool:
-        raise NotImplementedError
+        return self.storage.exists(key)
 
     def remove(self, key: K) -> None:
-        raise NotImplementedError
+        self.storage.remove(key)
+        self.policy.remove_key(key)
 
     def clear(self) -> None:
-        raise NotImplementedError
+        self.storage.clear()
+        self.policy.clear()
+
+    def _evict_if_needed(self) -> None:
+        evict_key = self.policy.get_key_to_evict()
+        if evict_key is not None:
+            self.storage.remove(evict_key)
+            self.policy.remove_key(evict_key)
+
 
 
 class CachedProperty[V]:
