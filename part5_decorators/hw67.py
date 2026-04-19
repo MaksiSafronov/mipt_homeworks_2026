@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any, ParamSpec, Protocol, TypeVar
 from urllib.request import urlopen
 
@@ -20,7 +21,10 @@ class CallableWithMeta(Protocol[P, R_co]):
 
 
 class BreakerError(Exception):
-    pass
+    def __init__(self, func_name: str, block_time: datetime, message: str = TOO_MUCH) -> None:
+        super().__init__(message)
+        self.func_name = func_name
+        self.block_time = block_time
 
 
 class CircuitBreaker:
