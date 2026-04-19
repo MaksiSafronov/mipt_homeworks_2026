@@ -53,10 +53,19 @@ def _function_full_name(func: NamedCallable) -> str:
 class CircuitBreaker:
     def __init__(
         self,
-        critical_count: int,
-        time_to_recover: int,
-        triggers_on: type[Exception],
-    ): ...
+        critical_count: int = 5,
+        time_to_recover: int = 30,
+        triggers_on: type[Exception] = Exception,
+    ) -> None:
+        errors = _collect_validation_errors(critical_count, time_to_recover)
+        if errors:
+            raise ExceptionGroup(VALIDATIONS_FAILED, errors)
+
+        self._critical_count = critical_count
+        self._time_to_recover = time_to_recover
+        self._triggers_on = triggers_on
+        self._errors_count = 0
+        self._blocked_at: datetime | None = None
 
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
         raise NotImplementedError
