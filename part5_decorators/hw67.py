@@ -1,6 +1,7 @@
 import json
-from datetime import datetime
-from typing import Any, ParamSpec, Protocol, TypeVar
+from datetime import UTC, datetime, timedelta
+from functools import wraps
+from typing import Any, NoReturn, ParamSpec, Protocol, TypeVar, cast
 from urllib.request import urlopen
 
 INVALID_CRITICAL_COUNT = "Breaker count must be positive integer!"
@@ -20,11 +21,33 @@ class CallableWithMeta(Protocol[P, R_co]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
 
 
+class NamedCallable(Protocol):
+    __name__: str
+    __module__: str
+
+
 class BreakerError(Exception):
     def __init__(self, func_name: str, block_time: datetime, message: str = TOO_MUCH) -> None:
         super().__init__(message)
         self.func_name = func_name
         self.block_time = block_time
+
+
+def _is_positive_int(number: int) -> bool:
+    return isinstance(number, int) and not isinstance(number, bool) and number > 0
+
+
+def _collect_validation_errors(critical_count: int, time_to_recover: int) -> list[ValueError]:
+    validation_errors: list[ValueError] = []
+    if not _is_positive_int(critical_count):
+        validation_errors.append(ValueError(INVALID_CRITICAL_COUNT))
+    if not _is_positive_int(time_to_recover):
+        validation_errors.append(ValueError(INVALID_RECOVERY_TIME))
+    return validation_errors
+
+
+def _function_full_name(func: NamedCallable) -> str:
+    return f"{func.__module__}.{func.__name__}"
 
 
 class CircuitBreaker:
