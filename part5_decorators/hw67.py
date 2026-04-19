@@ -68,7 +68,58 @@ class CircuitBreaker:
         self._blocked_at: datetime | None = None
 
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
-        raise NotImplementedError
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
+            now_utc = datetime.now(UTC)
+            if self._is_blocking_now(now_utc):
+                self._raise_blocked_error(func)
+
+            try:
+                result = func(*args, **kwargs)
+            except Exception as error:
+                self._handle_error(func, error, now_utc)
+                raise
+
+            self._reset_state()
+            return result
+
+        return cast("CallableWithMeta[P, R_co]", wrapper)
+
+    def _reset_state(self) -> None:
+        self._errors_count = 0
+        self._blocked_at = None
+
+    def _is_blocking_now(self, now_utc: datetime) -> bool:
+        if self._blocked_at is None:
+            return False
+
+        unblock_time = self._blocked_at + timedelta(seconds=self._time_to_recover)
+        if now_utc >= unblock_time:
+            self._reset_state()
+            return False
+
+        return True
+
+    def _raise_blocked_error(self, func: CallableWithMeta[P, R_co], source: Exception | None = None) -> NoReturn:
+        if self._blocked_at is None:
+            msg = "Block time must be set when breaker is open."
+            raise RuntimeError(msg)
+
+        if source is None:
+            raise BreakerError(_function_full_name(func), self._blocked_at)
+
+        raise BreakerError(_function_full_name(func), self._blocked_at) from source
+
+    def _handle_error(self, func: CallableWithMeta[P, R_co], error: Exception, now_utc: datetime) -> None:
+        if not isinstance(error, self._triggers_on):
+            return
+
+        self._errors_count += 1
+        if self._errors_count < self._critical_count:
+            return
+
+        self._blocked_at = now_utc
+        self._raise_blocked_error(func, source=error)
 
 
 circuit_breaker = CircuitBreaker(5, 30, Exception)
