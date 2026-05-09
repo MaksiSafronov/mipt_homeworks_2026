@@ -1,29 +1,19 @@
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import wraps
-from typing import Any, NoReturn, ParamSpec, Protocol, TypeVar, cast
+from typing import Any, NoReturn, ParamSpec, TypeVar
 from urllib.request import urlopen
 
 INVALID_CRITICAL_COUNT = "Breaker count must be positive integer!"
 INVALID_RECOVERY_TIME = "Breaker recovery time must be positive integer!"
 VALIDATIONS_FAILED = "Invalid decorator args."
 TOO_MUCH = "Too much requests, just wait."
+BLOCK_TIME_NOT_SET = "Block time must be set when breaker is open."
 
 
 P = ParamSpec("P")
 R_co = TypeVar("R_co", covariant=True)
-
-
-class CallableWithMeta(Protocol[P, R_co]):
-    __name__: str
-    __module__: str
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
-
-
-class NamedCallable(Protocol):
-    __name__: str
-    __module__: str
 
 
 class BreakerError(Exception):
@@ -46,10 +36,6 @@ def _collect_validation_errors(critical_count: int, time_to_recover: int) -> lis
     return validation_errors
 
 
-def _function_full_name(func: NamedCallable) -> str:
-    return f"{func.__module__}.{func.__name__}"
-
-
 class CircuitBreaker:
     def __init__(
         self,
@@ -67,59 +53,63 @@ class CircuitBreaker:
         self._errors_count = 0
         self._blocked_at: datetime | None = None
 
-    def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
+    def __call__(self, func: Callable[P, R_co]) -> Callable[P, R_co]:
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
             now_utc = datetime.now(UTC)
-            if self._is_blocking_now(now_utc):
+            self._try_to_recover(now_utc)
+            if self._is_blocked():
                 self._raise_blocked_error(func)
 
             try:
                 result = func(*args, **kwargs)
             except Exception as error:
-                self._handle_error(func, error, now_utc)
+                if self._should_open_breaker(error, now_utc):
+                    self._raise_blocked_error(func, source=error)
                 raise
 
             self._reset_state()
             return result
 
-        return cast("CallableWithMeta[P, R_co]", wrapper)
+        return wrapper
 
     def _reset_state(self) -> None:
         self._errors_count = 0
         self._blocked_at = None
 
-    def _is_blocking_now(self, now_utc: datetime) -> bool:
-        if self._blocked_at is None:
-            return False
+    def _is_blocked(self) -> bool:
+        return self._blocked_at is not None
 
+    def _try_to_recover(self, now_utc: datetime) -> None:
+        if self._blocked_at is None:
+            return
         unblock_time = self._blocked_at + timedelta(seconds=self._time_to_recover)
         if now_utc >= unblock_time:
             self._reset_state()
-            return False
 
-        return True
-
-    def _raise_blocked_error(self, func: CallableWithMeta[P, R_co], source: Exception | None = None) -> NoReturn:
+    def _raise_blocked_error(self, func: Callable[P, R_co], source: Exception | None = None) -> NoReturn:
         if self._blocked_at is None:
-            msg = "Block time must be set when breaker is open."
-            raise RuntimeError(msg)
+            raise RuntimeError(BLOCK_TIME_NOT_SET)
+
+        module_name = getattr(func, "__module__", "__main__")
+        function_name = getattr(func, "__name__", func.__class__.__name__)
+        full_name = f"{module_name}.{function_name}"
 
         if source is None:
-            raise BreakerError(_function_full_name(func), self._blocked_at)
+            raise BreakerError(full_name, self._blocked_at)
 
-        raise BreakerError(_function_full_name(func), self._blocked_at) from source
+        raise BreakerError(full_name, self._blocked_at) from source
 
-    def _handle_error(self, func: CallableWithMeta[P, R_co], error: Exception, now_utc: datetime) -> None:
+    def _should_open_breaker(self, error: Exception, now_utc: datetime) -> bool:
         if not isinstance(error, self._triggers_on):
-            return
+            return False
 
         self._errors_count += 1
         if self._errors_count < self._critical_count:
-            return
+            return False
 
         self._blocked_at = now_utc
-        self._raise_blocked_error(func, source=error)
+        return True
 
 
 circuit_breaker = CircuitBreaker(5, 30, Exception)
