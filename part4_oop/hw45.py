@@ -85,35 +85,44 @@ class LRUPolicy(Policy[K]):
 class LFUPolicy(Policy[K]):
     capacity: int = 5
     _key_counter: dict[K, int] = field(default_factory=dict, init=False)
+    _last_new_key: K | None = field(default=None, init=False)
 
     def register_access(self, key: K) -> None:
+        is_new_key = key not in self._key_counter
         self._key_counter[key] = self._key_counter.get(key, 0) + 1
-        if len(self._key_counter) > self.capacity:
-            evict_key = self._find_last_min_key()
-            del self._key_counter[evict_key]
+        if is_new_key:
+            self._last_new_key = key
 
     def get_key_to_evict(self) -> K | None:
-        if len(self._key_counter) >= self.capacity:
-            return min(self._key_counter, key=self._key_counter.get)  # type: ignore[arg-type]
-        return None
+        if len(self._key_counter) <= self.capacity:
+            return None
+
+        candidate_counters = self._get_candidate_counters()
+        if not candidate_counters:
+            return self._last_new_key
+        return min(candidate_counters, key=candidate_counters.__getitem__)
 
     def remove_key(self, key: K) -> None:
         self._key_counter.pop(key, None)
+        if self._last_new_key == key or len(self._key_counter) <= self.capacity:
+            self._last_new_key = None
 
     def clear(self) -> None:
         self._key_counter.clear()
+        self._last_new_key = None
 
     @property
     def has_keys(self) -> bool:
         return len(self._key_counter) > 0
 
-    def _find_last_min_key(self) -> K:
-        min_val = min(self._key_counter.values())
-        last_key: K | None = None
-        for counter_key, counter_val in self._key_counter.items():
-            if counter_val == min_val:
-                last_key = counter_key
-        return last_key  # type: ignore[return-value]
+    def _get_candidate_counters(self) -> dict[K, int]:
+        if self._last_new_key is None:
+            return self._key_counter
+        return {
+            counter_key: counter_value
+            for counter_key, counter_value in self._key_counter.items()
+            if counter_key != self._last_new_key
+        }
 
 
 class MIPTCache(Cache[K, V]):
@@ -153,14 +162,20 @@ class MIPTCache(Cache[K, V]):
 class CachedProperty[V]:
     def __init__(self, func: Callable[..., V]) -> None:
         self._func = func
-        self._cache_key = func.__name__
+        self._cache_key: str | None = None
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self._cache_key = f"{owner.__module__}.{owner.__qualname__}.{name}"
 
     def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> V:
         if instance is None:
             return self  # type: ignore[return-value]
-        cached: V | None = instance.cache.get(self._cache_key)
+        cache_key = self._cache_key
+        if cache_key is None:
+            cache_key = self._func.__qualname__
+        cached: V | None = instance.cache.get(cache_key)
         if cached is not None:
             return cached
         result: V = self._func(instance)
-        instance.cache.set(self._cache_key, result)
+        instance.cache.set(cache_key, result)
         return result
